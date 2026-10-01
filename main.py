@@ -1,89 +1,56 @@
 import cv2
 import time
-from detector import EyeDetector 
-from alert import AlertSystem
 from datetime import datetime
-import numpy as np 
+from detector import EyeDetector
+from alert import AlertSystem
 
-import ospyhton 
+WINDOW = "Drowsiness Detector"
+ALERT_THRESHOLD = 3.0
 
-
-# Inicialização
 detector = EyeDetector()
 alert = AlertSystem()
 
 cap = cv2.VideoCapture(0)
-
 closed_start = None
-fullscreen = False 
+fullscreen = False
 
-WINDOW = "Detector de Face"
 cv2.namedWindow(WINDOW, cv2.WINDOW_NORMAL)
 
 
-def draw_ui(frame, is_closed, timer):
+def draw_ui(frame, is_closed: bool, timer: float):
     h, w, _ = frame.shape
-    MAX_TIME = 3.0 
 
-    if is_closed and timer >= MAX_TIME:
-        # Borda Vermelha (Alerta Crítico)
-        cv2.rectangle(frame, (0,0), (w,h), (0,0,255), 15)
-        cv2.putText(frame, "ALERTA: Olhos fechados!", (50, 80),
-                     cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0,0,255), 3)
+    if is_closed and timer >= ALERT_THRESHOLD:
+        cv2.rectangle(frame, (0, 0), (w, h), (0, 0, 255), 15)
+        cv2.putText(frame, "ALERT: Eyes closed!", (50, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
     else:
-        # Borda Normal (Ciano Escuro/Azul)
-        cv2.rectangle(frame, (0,0), (w,h), (0,40, 200,), 2)
+        cv2.rectangle(frame, (0, 0), (w, h), (0, 40, 200), 2)
 
-    cv2.rectangle(frame, (0,0), (w,50), (20,20,20), -1)
-
-    cv2.putText(frame, "Detector de Face", (20, 35),
-                 cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,255), 2)
+    cv2.rectangle(frame, (0, 0), (w, 50), (20, 20, 20), -1)
+    cv2.putText(frame, "Drowsiness Detector", (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 255), 2)
 
     now = datetime.now().strftime("%H:%M:%S")
-    cv2.putText(frame, now, (w-150, 35),
-                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,255,0), 2)
-    
-    # STATUS TEXTUAL
-    status_text = "Status: Olhos Abertos"
-    status_color = (0, 255, 0) # Verde
-    
-    if is_closed:
-        status_text = "Status: Olhos Fechados"
-        status_color = (0, 165, 255) # Laranja
-        if timer >= MAX_TIME:
-            status_text = "Status: SONOLENCIA !"
-            status_color = (0, 0, 255) # Vermelho
-            
-    cv2.putText(frame, status_text, (50, h - 30),
-                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, status_color, 2)
+    cv2.putText(frame, now, (w - 150, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
-
-    # BARRA DE PROGRESSO
     if is_closed:
-        progress = min(timer / MAX_TIME, 1.0) 
-        
-        # Posições e Dimensões da Barra (canto inferior direito)
-        bar_w = 100
-        bar_h = 15
+        status_text = "DROWSY!" if timer >= ALERT_THRESHOLD else "Eyes closed"
+        status_color = (0, 0, 255) if timer >= ALERT_THRESHOLD else (0, 165, 255)
+    else:
+        status_text = "Eyes open"
+        status_color = (0, 255, 0)
+
+    cv2.putText(frame, status_text, (50, h - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, status_color, 2)
+
+    if is_closed:
+        progress = min(timer / ALERT_THRESHOLD, 1.0)
+        bar_w, bar_h = 100, 15
         bar_x = w - bar_w - 50
         bar_y = h - bar_h - 30
-        
-        # Fundo da barra (Cinza Escuro)
-        cv2.rectangle(frame, (bar_x, bar_y), 
-                      (bar_x + bar_w, bar_y + bar_h), (50, 50, 50), -1)
-        
-        # Preenchimento da barra
-        fill_color = (0, 255, 255) # Amarelo/Ciano
-        if progress >= 1.0:
-            fill_color = (0, 0, 255) # Vermelho
-            
-        cv2.rectangle(frame, (bar_x, bar_y), 
-                      (bar_x + int(bar_w * progress), bar_y + bar_h), 
-                      fill_color, -1)
-                      
-        # Borda da barra (Branca)
-        cv2.rectangle(frame, (bar_x, bar_y), 
-                      (bar_x + bar_w, bar_y + bar_h), (255, 255, 255), 1)
+
+        cv2.rectangle(frame, (bar_x, bar_y), (bar_x + bar_w, bar_y + bar_h), (50, 50, 50), -1)
+        fill_color = (0, 0, 255) if progress >= 1.0 else (0, 255, 255)
+        cv2.rectangle(frame, (bar_x, bar_y), (bar_x + int(bar_w * progress), bar_y + bar_h), fill_color, -1)
+        cv2.rectangle(frame, (bar_x, bar_y), (bar_x + bar_w, bar_y + bar_h), (255, 255, 255), 1)
 
     return frame
 
@@ -92,54 +59,34 @@ while True:
     ret, frame = cap.read()
     if not ret:
         break
-    
-    
 
     is_closed = detector.detect(frame)
 
-    # CONTAGEM
-    timer = 0
     if is_closed:
         if closed_start is None:
             closed_start = time.time()
         timer = time.time() - closed_start
     else:
         closed_start = None
+        timer = 0
         alert.stop()
 
-    # ALERTA APÓS 2s
-    if timer >= 3:
+    if timer >= ALERT_THRESHOLD:
         alert.play()
 
-    # DESENHO INTERFACE (CHAMADA SEM EAR)
     frame = draw_ui(frame, is_closed, timer)
-
-    # Exibe o frame na janela
     cv2.imshow(WINDOW, frame)
 
-    # Captura a tecla pressionada
     k = cv2.waitKey(1)
 
-    # === F11 TELA CHEIA (CORRIGIDO) ===
-    if k == 122: # F11
+    if k == 122:  # z key toggles fullscreen
         fullscreen = not fullscreen
-        if fullscreen:
-            # Alterna para MODO TELA CHEIA
-            cv2.setWindowProperty(WINDOW,
-                cv2.WND_PROP_FULLSCREEN,
-                cv2.WINDOW_FULLSCREEN)
-        else:
-            # Alterna para MODO JANELA
-            cv2.setWindowProperty(WINDOW,
-                cv2.WND_PROP_FULLSCREEN,
-                cv2.WINDOW_NORMAL)
-    # ==================================
+        prop = cv2.WINDOW_FULLSCREEN if fullscreen else cv2.WINDOW_NORMAL
+        cv2.setWindowProperty(WINDOW, cv2.WND_PROP_FULLSCREEN, prop)
 
-    # ESC = SAIR
-    if k == 27:
+    if k == 27:  # Esc
         break
 
-# Limpeza e Encerramento
 cap.release()
 cv2.destroyAllWindows()
 alert.stop()
