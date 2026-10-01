@@ -1,28 +1,31 @@
-# Sleep Detector (Anti-Sono) 👁️💤
+# reconhecimento_sono
 
-Um sistema de segurança baseado em **Visão Computacional** projetado para prevenir acidentes ou monitorar a produtividade, detectando sinais de fadiga através do fechamento dos olhos.
+A computer vision system that detects drowsiness in real time and fires an alarm when eyes stay closed for more than 3 seconds. Built with Python, OpenCV, and a custom YOLO model trained on eye state classification.
 
-## 📋 Funcionalidades
-* **Monitoramento via WebCam:** Rastreia os marcos faciais (*facial landmarks*) do usuário em tempo real.
-* **Cálculo de EAR (Eye Aspect Ratio):** Algoritmo matemático que determina se o olho está aberto ou fechado.
-* **Alerta de Segurança:** Se os olhos permanecerem fechados por mais de **3 segundos**, um alarme sonoro de alta intensidade é disparado.
+## How it works
 
-## 🛠️ Tecnologias
-* **Python**
-* **OpenCV:** Para processamento de imagem e acesso à câmera.
-* **Dlib / MediaPipe:** Para detecção precisa dos pontos dos olhos.
-* **Pygame Mixer:** Para a execução do alarme sonoro.
+Each video frame is passed through a YOLO model that detects eyes and classifies them as open or closed. When the closed state is detected continuously, a timer starts. If it reaches 3 seconds, the alarm plays on a loop via pygame. The alarm stops as soon as the eyes open again.
 
-## ⚙️ Lógica do Sistema
-O script analisa a relação de aspecto do olho (EAR). A fórmula utilizada para calcular a abertura é:
+The UI overlays a status bar, a timestamp, a colored border (red on alert, blue otherwise), and a progress bar showing how close the timer is to the threshold.
 
-$$EAR = \frac{||p_2 - p_6|| + ||p_3 - p_5||}{2||p_1 - p_4||}$$
+## Requirements
 
-Quando essa distância cai abaixo de um limiar por um tempo $t > 3s$, o evento de **"Sono Detectado"** é acionado.
+Python 3.10 or later.
 
-## 🚀 Como Iniciar
+```
+pip install opencv-python ultralytics pygame
+```
 
-Certifique-se de ter as dependências instaladas e execute:
+A trained model weights file (`best.pt`) must be placed at `model/best.pt`. The model is not included in the repository because of its size; train or download one separately. The expected YOLO class names are `olhos_fechados` (closed) and `olhos_abertos` (open), as defined in `config.py`.
 
-```bash
+## Run
+
+```
 python main.py
+```
+
+Press `z` to toggle fullscreen. Press `Esc` to quit.
+
+## License
+
+MIT.
